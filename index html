@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MovieBox Anime</title>
+    <style>
+        :root {
+            --bg-dark: #0b0e17;
+            --surface: #151a26;
+            --surface-accent: #1f2637;
+            --primary: #ff2a54;
+            --text-main: #ffffff;
+            --text-muted: #6b7a99;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); padding-bottom: 30px; }
+
+        header {
+            background: rgba(11, 14, 23, 0.95);
+            backdrop-filter: blur(12px);
+            padding: 15px 20px;
+            position: sticky; top: 0; z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .header-top { display: flex; align-items: center; justify-content: space-between; }
+        .logo-container { display: flex; align-items: center; gap: 10px; }
+        .app-logo { width: 36px; height: 36px; border-radius: 8px; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.2rem; }
+        header h1 { font-size: 1.3rem; font-weight: 800; }
+        header h1 span { color: var(--primary); }
+
+        .search-box {
+            position: relative; width: 100%;
+        }
+        .search-box input {
+            width: 100%; padding: 12px 40px 12px 16px;
+            background: var(--surface); border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 10px; color: white; font-size: 0.9rem; outline: none;
+        }
+
+        .section-title { padding: 20px 20px 5px 20px; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .section-title::before { content: ''; display: inline-block; width: 4px; height: 16px; background: var(--primary); border-radius: 2px; }
+
+        .anime-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 12px; padding: 15px 20px;
+        }
+        .anime-card { cursor: pointer; transition: transform 0.2s; }
+        .anime-card:hover { transform: scale(1.03); }
+        .poster-box { 
+            width: 100%; padding-top: 145%; border-radius: 12px; 
+            overflow: hidden; position: relative; background: var(--surface);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+        }
+        .poster-box img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .anime-card-title { font-size: 0.85rem; font-weight: 600; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .details-panel {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--bg-dark); z-index: 150;
+            display: none; flex-direction: column; overflow-y: auto;
+        }
+        .details-header {
+            position: relative; width: 100%; padding-top: 60%;
+            background-size: cover; background-position: center;
+        }
+        .details-header::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to top, var(--bg-dark), rgba(11, 14, 23, 0.4));
+        }
+        .btn-back {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(21, 26, 38, 0.8); backdrop-filter: blur(5px);
+            color: white; border: none; width: 40px; height: 40px;
+            border-radius: 50%; font-size: 1.2rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .details-body { padding: 20px; transform: translateY(-40px); position: relative; }
+        .details-meta { display: flex; gap: 15px; margin-bottom: 15px; }
+        .details-poster-mini { width: 85px; height: 125px; border-radius: 8px; object-fit: cover; }
+        .details-text { display: flex; flex-direction: column; justify-content: flex-end; }
+        .details-text h2 { font-size: 1.4rem; font-weight: 800; }
+        
+        .details-desc { color: #94a3b8; font-size: 0.85rem; line-height: 1.4; margin-top: 15px; margin-bottom: 25px; }
+
+        .select-style {
+            width: 100%; padding: 12px; background: var(--surface);
+            color: white; border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 10px; font-weight: 600; margin-bottom: 15px; outline: none;
+        }
+
+        .episodes-list { display: flex; flex-direction: column; gap: 10px; }
+        .episode-item {
+            background-color: var(--surface); padding: 12px 16px; border-radius: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .ep-title { font-weight: 600; font-size: 0.9rem; }
+        .btn-watch {
+            background-color: var(--primary); color: white; border: none;
+            padding: 8px 14px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+        }
+
+        .video-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 200; display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        .video-modal iframe { width: 100%; height: 100%; border: none; }
+        .btn-close-video { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-weight: bold; cursor: pointer; z-index: 210; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-top">
+            <div class="logo-container">
+                <div class="app-logo">M</div>
+                <h1>MovieBox<span>Anime</span></h1>
+            </div>
+        </div>
+        <div class="search-box">
+            <input type="text" id="searchInp" placeholder="Rechercher un animé (ex: Naruto, One Piece...)" oninput="rechercherAnime()">
+        </div>
+    </header>
+
+    <div class="section-title" id="gridTitle">Animés Populaires</div>
+    <div class="anime-grid" id="mainGrid"></div>
+
+    <div class="details-panel" id="detailsPanel">
+        <div class="details-header" id="panelBanner">
+            <button class="btn-back" onclick="fermerDetails()">➔</button>
+        </div>
+        <div class="details-body">
+            <div class="details-meta">
+                <img class="details-poster-mini" id="panelPoster" src="" alt="">
+                <div class="details-text">
+                    <h2 id="panelTitle">Titre</h2>
+                </div>
+            </div>
+            <p class="details-desc" id="panelDesc">Description...</p>
+            
+            <div class="section-title" style="padding:0; margin-bottom:15px;">Saisons</div>
+            <select class="select-style" id="seasonSelect" onchange="changerSaison()"></select>
+
+            <div class="episodes-list" id="episodesList"></div>
+        </div>
+    </div>
+
+    <div class="video-modal" id="videoModal">
+        <button class="btn-close-video" onclick="fermerVideo()">✕</button>
+        <iframe id="videoPlayer" allowfullscreen></iframe>
+    </div>
+
+    <script>
+        const API_KEY = "4ec640904506792cab5e57af3ad91335";
+        const BASE_URL = "https://api.themoviedb.org/3";
+        const IMG_URL = "https://image.tmdb.org/t/p/w500";
+        
+        let animeActuelId = null;
+
+        // Charger les animés tendances au démarrage
+        async function chargerTendances() {
+            try {
+                // Recherche ciblée sur le genre Animation (16) et pays Japon (JP)
+                const res = await fetch(`${BASE_URL}/discover/tv?api_key=${API_KEY}&with_genres=16&with_origin_country=JP&language=fr-FR&sort_by=popularity.desc`);
+                const data = await res.json();
+                afficherAnimes(data.results);
+            } catch (err) { console.error(err); }
+        }
+
+        // Rechercher un animé en direct
+        async function rechercherAnime() {
+            const query = document.getElementById('searchInp').value;
+            if(!query.trim()) {
+                document.getElementById('gridTitle').innerText = "Animés Populaires";
+                chargerTendances();
+                return;
+            }
+            document.getElementById('gridTitle').innerText = "Résultats de la recherche";
+            try {
+                const res = await fetch(`${BASE_URL}/search/tv?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR`);
+                const data = await res.json();
+                // Filtrer pour garder principalement l'animation
+                afficherAnimes(data.results);
+            } catch (err) { console.error(err); }
+        }
+
+        function afficherAnimes(animes) {
+            const grille = document.getElementById('mainGrid');
+            grille.innerHTML = "";
+            animes.forEach(anime => {
+                if(!anime.poster_path) return;
+                const card = document.createElement('div');
+                card.className = 'anime-card';
+                card.onclick = () => ouvrirDetails(anime.id);
+                card.innerHTML = `
+                    <div class="poster-box">
+                        <img src="${IMG_URL}${anime.poster_path}" alt="${anime.name}" loading="lazy">
+                    </div>
+                    <div class="anime-card-title">${anime.name}</div>
+                `;
+                grille.appendChild(card);
+            });
+        }
+
+        // Ouvrir les détails d'un animé
+        async function ouvrirDetails(id) {
+            animeActuelId = id;
+            try {
+                const res = await fetch(`${BASE_URL}/tv/${id}?api_key=${API_KEY}&language=fr-FR`);
+                const anime = await res.json();
+
+                document.getElementById('panelTitle').innerText = anime.name;
+                document.getElementById('panelDesc').innerText = anime.overview || "Aucune description en français disponible.";
+                document.getElementById('panelPoster').src = `${IMG_URL}${anime.poster_path}`;
+                document.getElementById('panelBanner').style.backgroundImage = `url('${IMG_URL}${anime.backdrop_path}')`;
+
+                const select = document.getElementById('seasonSelect');
+                select.innerHTML = "";
+                anime.seasons.forEach(saison => {
+                    if(saison.season_number === 0) return; // Ignorer les bonus/spéciaux
+                    const opt = document.createElement('option');
+                    opt.value = saison.season_number;
+                    opt.innerText = saison.name;
+                    select.appendChild(opt);
+                });
+
+                if(anime.seasons.length > 0) {
+                    changerSaison();
+                }
+
+                document.getElementById('detailsPanel').style.display = "flex";
+                document.body.style.overflow = "hidden";
+            } catch (err) { console.error(err); }
+        }
+
+        // Charger les épisodes de la saison choisie
+        async function changerSaison() {
+            const numSaison = document.getElementById('seasonSelect').value;
+            const container = document.getElementById('episodesList');
+            container.innerHTML = "<p style='padding:20px; color:gray;'>Chargement des épisodes...</p>";
+
+            try {
+                const res = await fetch(`${BASE_URL}/tv/${animeActuelId}/season/${numSaison}?api_key=${API_KEY}&language=fr-FR`);
+                const data = await res.json();
+
+                container.innerHTML = "";
+                data.episodes.forEach(ep => {
+                    const item = document.createElement('div');
+                    item.className = 'episode-item';
+                    item.innerHTML = `
+                        <div class="ep-info">
+                            <div class="ep-title">Ép. ${ep.episode_number} : ${ep.name || 'Épisode sans titre'}</div>
+                        </div>
+                        <button class="btn-watch" onclick="regarderEpisode(${numSaison}, ${ep.episode_number})">▶ Regarder</button>
+                    `;
+                    container.appendChild(item);
+                });
+            } catch (err) { container.innerHTML = "<p style='padding:20px; color:red;'>Erreur au chargement.</p>"; }
+        }
+
+        function fermerDetails() {
+            document.getElementById('detailsPanel').style.display = "none";
+            document.body.style.overflow = "auto";
+        }
+
+        // Intégration du lecteur de streaming externe automatique
+        function regarderEpisode(saison, episode) {
+            const modal = document.getElementById('videoModal');
+            const iframe = document.getElementById('videoPlayer');
+            
+            // Serveur de streaming multi-langues basé sur l'identifiant TMDB de l'animé
+            iframe.src = `https://vidsrc.me/embed/tv?tmdb=${animeActuelId}&season=${saison}&episode=${episode}`;
+            
+            modal.style.display = "flex";
+        }
+
+        function fermerVideo() {
+            const modal = document.getElementById('videoModal');
+            const iframe = document.getElementById('videoPlayer');
+            iframe.src = "";
+            modal.style.display = "none";
+        }
+
+        window.onload = chargerTendances;
+    </script>
+</body>
+  </html>
+  
