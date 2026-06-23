@@ -31,9 +31,7 @@
         header h1 { font-size: 1.3rem; font-weight: 800; }
         header h1 span { color: var(--primary); }
 
-        .search-box {
-            position: relative; width: 100%;
-        }
+        .search-box { position: relative; width: 100%; }
         .search-box input {
             width: 100%; padding: 12px 40px 12px 16px;
             background: var(--surface); border: 1px solid rgba(255,255,255,0.05);
@@ -47,7 +45,7 @@
             display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
             gap: 12px; padding: 15px 20px;
         }
-        .anime-card { cursor: pointer; transition: transform 0.2s; }
+        .anime-card { cursor: pointer; transition: transform 0.2s; position: relative; }
         .anime-card:hover { transform: scale(1.03); }
         .poster-box { 
             width: 100%; padding-top: 145%; border-radius: 12px; 
@@ -57,6 +55,16 @@
         .poster-box img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
         .anime-card-title { font-size: 0.85rem; font-weight: 600; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
+        .fav-btn {
+            position: absolute; top: 8px; right: 8px; z-index: 10;
+            background: rgba(21, 26, 38, 0.85); border: none;
+            width: 32px; height: 32px; border-radius: 50%;
+            color: #fff; font-size: 1rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px); transition: background 0.2s;
+        }
+        .fav-btn.active { color: var(--primary); }
+
         .details-panel {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-color: var(--bg-dark); z-index: 150;
@@ -80,9 +88,17 @@
         .details-body { padding: 20px; transform: translateY(-40px); position: relative; }
         .details-meta { display: flex; gap: 15px; margin-bottom: 15px; }
         .details-poster-mini { width: 85px; height: 125px; border-radius: 8px; object-fit: cover; }
-        .details-text { display: flex; flex-direction: column; justify-content: flex-end; }
+        .details-text { display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; }
         .details-text h2 { font-size: 1.4rem; font-weight: 800; }
         
+        .action-buttons { display: flex; gap: 10px; margin-top: 5px; }
+        .panel-fav-btn {
+            background: var(--surface); border: 1px solid rgba(255,255,255,0.1);
+            color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem;
+            cursor: pointer; display: flex; align-items: center; gap: 6px;
+        }
+        .panel-fav-btn.active { background: rgba(255, 42, 84, 0.1); border-color: var(--primary); color: var(--primary); }
+
         .details-desc { color: #94a3b8; font-size: 0.85rem; line-height: 1.4; margin-top: 15px; margin-bottom: 25px; }
 
         .select-style {
@@ -109,6 +125,10 @@
         }
         .video-modal iframe { width: 100%; height: 100%; border: none; }
         .btn-close-video { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-weight: bold; cursor: pointer; z-index: 210; }
+
+        .interaction-box { background: var(--surface); margin: 20px; padding: 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); }
+        .stats-counter { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .empty-msg { color: var(--text-muted); font-size: 0.85rem; padding: 15px 20px; font-style: italic; }
     </style>
 </head>
 <body>
@@ -125,8 +145,20 @@
         </div>
     </header>
 
+    <div class="section-title" id="favTitle" style="display:none;">Mes Favoris</div>
+    <div class="anime-grid" id="favGrid" style="display:none;"></div>
+
     <div class="section-title" id="gridTitle">Animés Populaires</div>
     <div class="anime-grid" id="mainGrid"></div>
+
+    <div class="section-title">Espace Communauté</div>
+    <div class="interaction-box">
+        <div id="disqus_thread"></div>
+        <div class="stats-counter">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">Visiteurs sur l'application :</p>
+            <a href="https://info.flagcounter.com/8mXf"><img src="https://s11.flagcounter.com/mini/8mXf/bg_151A26/txt_FFFFFF/border_151A26/flags_0/" alt="Flag Counter" border="0"></a>
+        </div>
+    </div>
 
     <div class="details-panel" id="detailsPanel">
         <div class="details-header" id="panelBanner">
@@ -137,6 +169,11 @@
                 <img class="details-poster-mini" id="panelPoster" src="" alt="">
                 <div class="details-text">
                     <h2 id="panelTitle">Titre</h2>
+                    <div class="action-buttons">
+                        <button class="panel-fav-btn" id="panelFavBtn" onclick="basculerFavoriManuel()">
+                            <span id="favHeart">♥</span> <span id="favText">Ajouter aux favoris</span>
+                        </button>
+                    </div>
                 </div>
             </div>
             <p class="details-desc" id="panelDesc">Description...</p>
@@ -159,18 +196,17 @@
         const IMG_URL = "https://image.tmdb.org/t/p/w500";
         
         let animeActuelId = null;
+        let listeFavoris = JSON.parse(localStorage.getItem('moviebox_favs')) || [];
 
-        // Charger les animés tendances au démarrage
         async function chargerTendances() {
             try {
-                // Recherche ciblée sur le genre Animation (16) et pays Japon (JP)
                 const res = await fetch(`${BASE_URL}/discover/tv?api_key=${API_KEY}&with_genres=16&with_origin_country=JP&language=fr-FR&sort_by=popularity.desc`);
                 const data = await res.json();
-                afficherAnimes(data.results);
+                afficherAnimes(data.results, 'mainGrid');
+                mettreAJourFavorisAffichage();
             } catch (err) { console.error(err); }
         }
 
-        // Rechercher un animé en direct
         async function rechercherAnime() {
             const query = document.getElementById('searchInp').value;
             if(!query.trim()) {
@@ -182,30 +218,86 @@
             try {
                 const res = await fetch(`${BASE_URL}/search/tv?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR`);
                 const data = await res.json();
-                // Filtrer pour garder principalement l'animation
-                afficherAnimes(data.results);
+                afficherAnimes(data.results, 'mainGrid');
             } catch (err) { console.error(err); }
         }
 
-        function afficherAnimes(animes) {
-            const grille = document.getElementById('mainGrid');
+        function afficherAnimes(animes, elementId) {
+            const grille = document.getElementById(elementId);
             grille.innerHTML = "";
             animes.forEach(anime => {
                 if(!anime.poster_path) return;
+                const estFavori = listeFavoris.some(f => f.id === anime.id);
+                
                 const card = document.createElement('div');
                 card.className = 'anime-card';
-                card.onclick = () => ouvrirDetails(anime.id);
+                
                 card.innerHTML = `
-                    <div class="poster-box">
-                        <img src="${IMG_URL}${anime.poster_path}" alt="${anime.name}" loading="lazy">
+                    <button class="fav-btn ${estFavori ? 'active' : ''}" onclick="clicFavori(event, ${anime.id}, '${anime.name.replace(/'/g, "\\'")}', '${anime.poster_path}')">♥</button>
+                    <div onclick="ouvrirDetails(${anime.id})">
+                        <div class="poster-box">
+                            <img src="${IMG_URL}${anime.poster_path}" alt="${anime.name}" loading="lazy">
+                        </div>
+                        <div class="anime-card-title">${anime.name}</div>
                     </div>
-                    <div class="anime-card-title">${anime.name}</div>
                 `;
                 grille.appendChild(card);
             });
         }
 
-        // Ouvrir les détails d'un animé
+        function clicFavori(event, id, name, poster_path) {
+            event.stopPropagation();
+            const index = listeFavoris.findIndex(f => f.id === id);
+            if (index > -1) {
+                listeFavoris.splice(index, 1);
+            } else {
+                listeFavoris.push({ id, name, poster_path });
+            }
+            localStorage.setItem('moviebox_favs', JSON.stringify(listeFavoris));
+            mettreAJourFavorisAffichage();
+            
+            const btn = event.target;
+            btn.classList.toggle('active');
+        }
+
+        function basculerFavoriManuel() {
+            if(!animeActuelId) return;
+            const titre = document.getElementById('panelTitle').innerText;
+            const fullPosterPath = document.getElementById('panelPoster').src;
+            const shortPosterPath = fullPosterPath.replace(IMG_URL, "");
+            
+            const index = listeFavoris.findIndex(f => f.id === animeActuelId);
+            const btn = document.getElementById('panelFavBtn');
+            const txt = document.getElementById('favText');
+            
+            if (index > -1) {
+                listeFavoris.splice(index, 1);
+                btn.classList.remove('active');
+                txt.innerText = "Ajouter aux favoris";
+            } else {
+                listeFavoris.push({ id: animeActuelId, name: titre, poster_path: shortPosterPath });
+                btn.classList.add('active');
+                txt.innerText = "Dans vos favoris";
+            }
+            localStorage.setItem('moviebox_favs', JSON.stringify(listeFavoris));
+            mettreAJourFavorisAffichage();
+            rechercherAnime(); 
+        }
+
+        function mettreAJourFavorisAffichage() {
+            const title = document.getElementById('favTitle');
+            const grid = document.getElementById('favGrid');
+            
+            if (listeFavoris.length === 0) {
+                title.style.display = "none";
+                grid.style.display = "none";
+            } else {
+                title.style.display = "flex";
+                grid.style.display = "grid";
+                afficherAnimes(listeFavoris, 'favGrid');
+            }
+        }
+
         async function ouvrirDetails(id) {
             animeActuelId = id;
             try {
@@ -217,43 +309,46 @@
                 document.getElementById('panelPoster').src = `${IMG_URL}${anime.poster_path}`;
                 document.getElementById('panelBanner').style.backgroundImage = `url('${IMG_URL}${anime.backdrop_path}')`;
 
+                const estFavori = listeFavoris.some(f => f.id === id);
+                const btn = document.getElementById('panelFavBtn');
+                const txt = document.getElementById('favText');
+                if(estFavori) {
+                    btn.classList.add('active');
+                    txt.innerText = "Dans vos favoris";
+                } else {
+                    btn.classList.remove('active');
+                    txt.innerText = "Ajouter aux favoris";
+                }
+
                 const select = document.getElementById('seasonSelect');
                 select.innerHTML = "";
                 anime.seasons.forEach(saison => {
-                    if(saison.season_number === 0) return; // Ignorer les bonus/spéciaux
+                    if(saison.season_number === 0) return;
                     const opt = document.createElement('option');
                     opt.value = saison.season_number;
                     opt.innerText = saison.name;
                     select.appendChild(opt);
                 });
 
-                if(anime.seasons.length > 0) {
-                    changerSaison();
-                }
-
+                if(anime.seasons.length > 0) { changerSaison(); }
                 document.getElementById('detailsPanel').style.display = "flex";
                 document.body.style.overflow = "hidden";
             } catch (err) { console.error(err); }
         }
 
-        // Charger les épisodes de la saison choisie
         async function changerSaison() {
             const numSaison = document.getElementById('seasonSelect').value;
             const container = document.getElementById('episodesList');
             container.innerHTML = "<p style='padding:20px; color:gray;'>Chargement des épisodes...</p>";
-
             try {
                 const res = await fetch(`${BASE_URL}/tv/${animeActuelId}/season/${numSaison}?api_key=${API_KEY}&language=fr-FR`);
                 const data = await res.json();
-
                 container.innerHTML = "";
                 data.episodes.forEach(ep => {
                     const item = document.createElement('div');
                     item.className = 'episode-item';
                     item.innerHTML = `
-                        <div class="ep-info">
-                            <div class="ep-title">Ép. ${ep.episode_number} : ${ep.name || 'Épisode sans titre'}</div>
-                        </div>
+                        <div class="ep-info"><div class="ep-title">Ép. ${ep.episode_number} : ${ep.name || 'Épisode sans titre'}</div></div>
                         <button class="btn-watch" onclick="regarderEpisode(${numSaison}, ${ep.episode_number})">▶ Regarder</button>
                     `;
                     container.appendChild(item);
@@ -266,14 +361,10 @@
             document.body.style.overflow = "auto";
         }
 
-        // Intégration du lecteur de streaming externe automatique
         function regarderEpisode(saison, episode) {
             const modal = document.getElementById('videoModal');
             const iframe = document.getElementById('videoPlayer');
-            
-            // Serveur de streaming multi-langues basé sur l'identifiant TMDB de l'animé
-            iframe.src = `https://vidsrc.me/embed/tv?tmdb=${animeActuelId}&season=${saison}&episode=${episode}`;
-            
+            iframe.src = `https://vidsrc.me/embed/tv?tmdb=${animeActuelId}&season=${saison}&episode=${episode}&lang=fr`;
             modal.style.display = "flex";
         }
 
@@ -285,7 +376,17 @@
         }
 
         window.onload = chargerTendances;
+
+        var disqus_config = function () {
+            this.page.url = "https://zongoisaie4-pixel.github.io/anime-movie/";
+            this.page.identifier = "moviebox_anime_main";
+        };
+        (function() {
+            var d = document, s = d.createElement('script');
+            s.src = 'https://moviebox-anime.disqus.com/embed.js';
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+        })();
     </script>
 </body>
-  </html>
-  
+</html>
