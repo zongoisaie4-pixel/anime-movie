@@ -364,7 +364,7 @@
         function regarderEpisode(saison, episode) {
             const modal = document.getElementById('videoModal');
             const iframe = document.getElementById('videoPlayer');
-            iframe.src = `https://vidsrc.me/embed/tv?tmdb=${animeActuelId}&season=${saison}&episode=${episode}&lang=fr`;
+            iframe.src = `https://vidsrc.pro/embed/tv/${animeActuelId}/${saison}/${episode}`;
             modal.style.display = "flex";
         }
 
